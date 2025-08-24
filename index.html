@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- OpenLayers / qgis2web CSS -->
+  <link rel="stylesheet" href="resources/ol.css">
+  <link rel="stylesheet" href="resources/fontawesome-all.min.css">
+  <link href="resources/ol-geocoder.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="resources/ol-layerswitcher.css">
+  <link rel="stylesheet" href="resources/qgis2web.css">
+
+  <title>Modélisation prospective des forêts classées de Koba et Séguéla</title>
+
+  <style>
+    /* === THEME & TOKENS === */
+    :root{
+      --bg:#f7faf9; --surface:#ffffff;
+      --brand:#2e6a4d; --brand-2:#1f5a3d;
+      --accent:#3ea7e0; --text:#0f172a; --muted:#0f0f0f;
+      --ring:rgba(46,106,77,.25); --shadow:0 10px 24px rgba(0,0,0,.06);
+      --radius:16px;
+    }
+    html,body{background:var(--bg)}
+    img{max-width:100%; height:auto; display:block}
+
+    /* NAVBAR */
+    .navbar{ background:#2e6a4d!important; position:sticky; top:0; z-index:50; box-shadow:0 8px 18px rgba(0,0,0,.06) }
+    .navbar-brand,.nav-link{ color:#fff!important }
+    .nav-link:hover{ color:#c8f3d0!important }
+
+    /* HERO */
+    
+.hero{
+  position:relative;
+  min-height:30vh; /* au lieu de 56vh -> plus compact */
+  display:rgb(89, 168, 89);
+  place-items:center;
+  color:#fff;
+  background:linear-gradient(to bottom,rgba(0,0,0,.35),rgba(0,0,0,.45)),
+             url("images/hero-ndvi.jpg") center/cover no-repeat;
+}
+.hero .inner{ text-align:center; max-width:760px; padding:24px 16px }
+.hero h1{
+  font-size:clamp(24px,3.5vw,42px); /* plus petit */
+  line-height:1.2;
+  font-weight:700;
+  margin:0 0 8px;
+}
+.hero p{
+  opacity:.95;
+  margin:0 0 18px;
+  font-size:clamp(14px,1.8vw,18px);
+}
+.hero .btn{ border-radius:10px; padding:10px 14px; }
+
+    /* KPI */
+    .kpis{
+      max-width:1100px; margin:-28px auto 18px; padding:0 20px;
+      display:grid; gap:14px; grid-template-columns:repeat(4,1fr)
+    }
+    .kpi{ background:var(--surface); border-radius:14px; padding:14px 16px; box-shadow:var(--shadow); border:1px solid #edf3ef }
+    .kpi .label{ color:var(--muted); font-size:.85rem }
+    .kpi .value{ font-weight:800; font-size:1.35rem }
+
+    /* Section titles */
+    .section-title{ border-left:6px solid var(--brand); padding-left:.75rem; margin-bottom:.35rem; font-weight:800 }
+
+    /* LOGOS partenaires */
+    .logos-bar{ background:#f4f7f5; border-bottom:1px solid #e6eee9 }
+    .brand-logo{ height:42px; width:auto; object-fit:contain }
+    @media (max-width:576px){ .brand-logo{ height:32px } }
+
+    /* Carrousel d’accueil & résultats */
+    .carousel-item img{ height:360px; width:100%; object-fit:contain; background:#f7f7f7; border-radius:12px }
+    .carousel-caption{ background-color:rgba(46,106,77,.78); border-radius:8px; padding:.45rem .7rem }
+
+    /* Carte OpenLayers */
+    .map-wrapper{ max-width:1200px; margin:0 auto }
+    #map{ height:520px; border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow); background:#fff }
+    .ol-control > *{ background-color:#f8f8f8!important; color:#444!important; border-radius:8px }
+    .ol-control{ background-color:rgba(255, 255, 255, 0.4)!important; padding:2px!important }
+    .ol-attribution a,.gcd-gl-input::placeholder,.search-layer-input-search::placeholder{ color:#444!important }
+    .search-layer-input-search{ background-color:#f8f8f8!important }
+    .layer-switcher{ border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.18); overflow:hidden }
+
+    /* Cards / galerie */
+    .card.h-100{ border:0; border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden }
+    .card-img-top{ background:#f6f8f7 }
+    .card .btn{ border-radius:999px }
+
+    /* Badges climat doux */
+    .badge-soft{ background:#e9f5ef; color:var(--brand) }
+
+    /* Footer */
+    footer{ background:#0b3d2d; color:#dfeeea }
+
+    @media (max-width:992px){ .kpis{grid-template-columns:repeat(2,1fr)} }
+    @media (max-width:520px){ .kpis{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar navbar-expand-lg navbar-dark">
+    <div class="container">
+      <a class="navbar-brand" href="#accueil">Forêts Classées de Koba et Séguéla</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link active" href="#accueil">Accueil</a></li>
+          <li class="nav-item"><a class="nav-link" href="#projet">Projet</a></li>
+          <li class="nav-item"><a class="nav-link" href="#carto">Cartographie</a></li>
+          <li class="nav-item"><a class="nav-link" href="#modelisation">Modélisation</a></li>
+          <li class="nav-item"><a class="nav-link" href="#resultats">Résultats</a></li>
+          <li class="nav-item"><a class="nav-link" href="#climat">Climat</a></li>
+          <li class="nav-item"><a class="nav-link" href="#galerie">Téléchargements</a></li>
+          <li class="nav-item"><a class="nav-link" href="#contact">Contact</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- LOGOS PARTENAIRES (on garde ta barre, au-dessus du hero si tu préfères) -->
+  <div class="logos-bar py-2">
+    <div class="container d-flex align-items-center justify-content-center gap-4 flex-wrap">
+      <img src="logo_amu.png" alt="Logo AMU" class="brand-logo">
+      <img src="logo_sodefort.png" alt="Logo Ministère des Eaux & Forêts" class="brand-logo">
+      <img src="logo_ujog.png" alt="Logo UJOG" class="brand-logo">
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <section class="hero" id="accueil">
+  <div class="inner container">
+    <h1>Modélisation prospective des forêts de Koba et Séguéla</h1>
+    <p>Analyse diachronique 1995–2025 et projection en 2035 (télédétection & SIG)</p>
+    <div class="d-flex gap-2 justify-content-center">
+      <a href="#carto" class="btn btn-hero">Carte interactive</a>
+      <a href="#resultats" class="btn btn-outline-hero">Voir les résultats</a>
+    </div>
+  </div>
+</section>
+
+  <!-- KPI -->
+  <div class="kpis">
+  <div class="kpi"><div class="label">Surface forêt 1995</div><div class="value">57100 ha</div></div>
+  <div class="kpi"><div class="label">Surface forêt 2025</div><div class="value">14562 ha</div></div>
+  <div class="kpi"><div class="label">Variation 1995→2025</div><div class="value">-74% %</div></div>
+  <div class="kpi"><div class="label">Taux annuel de déforestation</div><div class="value">−8,0 %/an</div></div>
+</div>
+
+
+  <!-- CARROUSEL ACCUEIL (id changé pour éviter conflit d’ancre) -->
+  <section id="presentation" class="container mt-3">
+    <div id="forestCarousel" class="carousel slide" data-bs-ride="carousel">
+      <div class="carousel-indicators">
+        <button type="button" data-bs-target="#forestCarousel" data-bs-slide-to="0" class="active" aria-label="Slide 1"></button>
+        <button type="button" data-bs-target="#forestCarousel" data-bs-slide-to="1" aria-label="Slide 2"></button>
+        <button type="button" data-bs-target="#forestCarousel" data-bs-slide-to="2" aria-label="Slide 3"></button>
+      </div>
+      <div class="carousel-inner">
+        <div class="carousel-item active">
+          <img src="layers/classification_1995_6.png" alt="Occupation du sol 1995">
+          <div class="carousel-caption d-none d-md-block">
+            <h5>Koba & Séguéla — Occupation 1995</h5>
+            <p>État initial de référence</p>
+          </div>
+        </div>
+        <div class="carousel-item">
+          <img src="layers/classification_2015_5.png" alt="Occupation du sol 2015">
+          <div class="carousel-caption d-none d-md-block">
+            <h5>Occupation 2015</h5>
+            <p>Évolution intermédiaire</p>
+          </div>
+        </div>
+        <div class="carousel-item">
+          <img src="layers/classification_2025_4.png" alt="Occupation du sol 2025">
+          <div class="carousel-caption d-none d-md-block">
+            <h5>Occupation 2025</h5>
+            <p>Tendance récente observée</p>
+          </div>
+        </div>
+      </div>
+      <button class="carousel-control-prev" type="button" data-bs-target="#forestCarousel" data-bs-slide="prev">
+        <span class="carousel-control-prev-icon" aria-hidden="true"></span><span class="visually-hidden">Précédent</span>
+      </button>
+      <button class="carousel-control-next" type="button" data-bs-target="#forestCarousel" data-bs-slide="next">
+        <span class="carousel-control-next-icon" aria-hidden="true"></span><span class="visually-hidden">Suivant</span>
+      </button>
+    </div>
+    <p class="section-note">Aperçu rapide des états d’occupation (1995–2025) servant de base à la dynamique et à la modélisation.</p>
+  </section>
+
+  <!-- CARTE INTERACTIVE -->
+  <section id="carto" class="container my-4">
+    <h2 class="h4 section-title mb-1">Carte interactive</h2>
+    <p class="section-note">Explore la zone d’étude : zoom, couches, requêtes attributaires (OpenLayers).</p>
+    <div class="map-wrapper">
+      <div id="map">
+        <div id="popup" class="ol-popup">
+          <a href="#" id="popup-closer" class="ol-popup-closer"></a>
+          <div id="popup-content"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INFORMATIONS / ONGLET -->
+  <section id="projet" class="container my-4">
+    <h2 class="h4 section-title mb-1">Informations sur le projet</h2>
+    <p class="section-note">Cadre, données et méthodes utilisées pour Koba & Séguéla.</p>
+
+    <ul class="nav nav-tabs" id="infoTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="resume-tab" data-bs-toggle="tab" data-bs-target="#resume" type="button" role="tab">Résumé</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="donnees-tab" data-bs-toggle="tab" data-bs-target="#donnees" type="button" role="tab">Données</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="methodes-tab" data-bs-toggle="tab" data-bs-target="#methodes" type="button" role="tab">Méthodes</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="telechargements-tab" data-bs-toggle="tab" data-bs-target="#telechargements" type="button" role="tab">Téléchargements</button>
+      </li>
+    </ul>
+
+    <div class="tab-content p-3 border border-top-0 rounded-bottom">
+      <div class="tab-pane fade show active" id="resume" role="tabpanel">
+        <p>Analyse diachronique 1995–2025 et projection 2035 des occupations du sol dans les forêts classées de Koba et Séguéla. Indices NDVI, matrices de transition et scénarios de modélisation prospective.</p>
+      </div>
+      <div class="tab-pane fade" id="donnees" role="tabpanel">
+        <ul class="mb-0">
+          <li>Landsat / Sentinel-2 (prétraitements, mosaïques)</li>
+          <li>Indices : NDVI 1995 & 2025</li>
+          <li>Limites : zonedetude (fichier source)</li>
+        </ul>
+      </div>
+      <div class="tab-pane fade" id="methodes" role="tabpanel">
+        <ul class="mb-0">
+          <li>Classification supervisée (QGIS)</li>
+          <li>Export interactif qgis2web (OpenLayers)</li>
+          <li>Projection CA–Markov (scénarios 2035)</li>
+        </ul>
+      </div>
+      <div class="tab-pane fade" id="telechargements" role="tabpanel">
+        <div class="list-group">
+          <a class="list-group-item list-group-item-action" href="layers/classification_1995_6.png" download>Télécharger — Occupation 1995 (PNG)</a>
+          <a class="list-group-item list-group-item-action" href="layers/classification_2015_5.png" download>Télécharger — Occupation 2015 (PNG)</a>
+          <a class="list-group-item list-group-item-action" href="layers/classification_2025_4.png" download>Télécharger — Occupation 2025 (PNG)</a>
+          <a class="list-group-item list-group-item-action" href="CARTE%20DE%20LOCALISATION.png" download>Télécharger — Carte de localisation (PNG)</a>
+          <a class="list-group-item list-group-item-action" href="carte%20de%20prediction.png" download>Télécharger — Carte de prédiction (PNG)</a>
+          <a class="list-group-item list-group-item-action" href="prediction%20carte_3.png" download>Télécharger — Prédiction (variante) (PNG)</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RÉSULTATS VISUELS -->
+  <section id="resultats" class="container my-4">
+    <h2 class="h4 section-title mb-1">Résultats visuels</h2>
+    <p class="section-note">Parcourez les états d’occupation, indices et scénarios pour comparer les tendances.</p>
+
+    <div id="slides" class="carousel slide" data-bs-ride="false">
+      <div class="carousel-inner">
+        <div class="carousel-item active">
+          <img src="CARTE%20DE%20LOCALISATION.png" alt="Carte de localisation">
+          <div class="carousel-caption d-none d-md-block"><h5>Carte de localisation</h5></div>
+        </div>
+        <div class="carousel-item">
+          <img src="OCCUPATION%20DE%20SOL%201995.png" alt="Occupation du sol 1995">
+          <div class="carousel-caption d-none d-md-block"><h5>Occupation du sol — 1995</h5></div>
+        </div>
+        <div class="carousel-item">
+          <img src="occupation%20du%20sol%202015.png" alt="Occupation du sol 2015">
+          <div class="carousel-caption d-none d-md-block"><h5>Occupation du sol — 2015</h5></div>
+        </div>
+        <div class="carousel-item">
+          <img src="ocupation%20de%20sol%202025.png" alt="Occupation du sol 2025">
+          <div class="carousel-caption d-none d-md-block"><h5>Occupation du sol — 2025</h5></div>
+        </div>
+        <div class="carousel-item">
+          <img src="carte%20de%20prediction.png" alt="Carte de prédiction">
+          <div class="carousel-caption d-none d-md-block"><h5>Carte de prédiction</h5></div>
+        </div>
+        <div class="carousel-item">
+          <img src="prediction%20carte_3.png" alt="Prédiction carte 3">
+          <div class="carousel-caption d-none d-md-block"><h5>Prédiction — variante</h5></div>
+        </div>
+        <!-- CLIMAT : Précipitations -->
+        <div class="carousel-item">
+          <img src="evolution%20de%20la%20precipitation%20precipitation.png" alt="Évolution des précipitations">
+          <div class="carousel-caption d-none d-md-block"><h5>Évolution des précipitations</h5></div>
+        </div>
+        <!-- CLIMAT : Température -->
+        <div class="carousel-item">
+          <img src="evolution%20de%20la%20temperature.png" alt="Évolution de la température">
+          <div class="carousel-caption d-none d-md-block"><h5>Évolution de la température</h5></div>
+        </div>
+        <!-- CLIMAT : Synthèse -->
+        <div class="carousel-item">
+          <div class="climate-slide d-flex align-items-center justify-content-center" style="height:360px;border-radius:12px;padding:1.25rem;text-align:center;background:linear-gradient(135deg,#f0faf7,#eef6ff);">
+            <div class="container">
+              <h5>Tendance climatique observée</h5>
+              <p class="mb-1"><span class="text-danger fw-semibold">Température : hausse progressive</span></p>
+              <p class="mb-1"><span class="text-primary fw-semibold">Pluviométrie : cumul en baisse</span></p>
+              <p class="small mb-0">Impacts : stress hydrique, saison humide plus courte, régénération forestière affectée, risque incendie accru.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button class="carousel-control-prev" type="button" data-bs-target="#slides" data-bs-slide="prev">
+        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+        <span class="visually-hidden">Précédent</span>
+      </button>
+      <button class="carousel-control-next" type="button" data-bs-target="#slides" data-bs-slide="next">
+        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+        <span class="visually-hidden">Suivant</span>
+      </button>
+
+      <div class="carousel-indicators" style="position: static; margin-top: .5rem;">
+        <button type="button" data-bs-target="#slides" data-bs-slide-to="0" class="active" aria-label="Localisation"></button>
+        <button type="button" data-bs-target="#slides" data-bs-slide-to="1" aria-label="Occ 1995"></button>
+        <button type="button" data-bs-target="#slides" data-bs-slide-to="2" aria-label="Occ 2015"></button>
+        <button type="button" data-bs-target="#slides" data-bs-slide-to="3" aria-label="Occ 2025"></button>
+        <button type="button" data-bs-target="#slides" data-bs-slide-to="4" aria-label="Prédiction 1"></button>
+        <button type="button" data-bs-target="#slides" data-bs-slide-to="5" aria-label="Prédiction 2"></button>
+        <button type="button" data-bs-target="#slides" data-bs-slide-to="6" aria-label="Précipitations"></button>
+        <button type="button" data-bs-target="#slides" data-bs-slide-to="7" aria-label="Température"></button>
+        <button type="button" data-bs-target="#slides" data-bs-slide-to="8" aria-label="Synthèse climat"></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- CLIMAT : section dédiée -->
+  <section id="climat" class="container my-4">
+    <h2 class="h4 section-title mb-1">Climat : Pluviométrie & Température</h2>
+    <p class="section-note">Synthèse climatique de la zone Koba–Séguéla (1995–2022).</p>
+
+    <div class="row g-4">
+      <!-- Précipitations -->
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <img src="evolution%20de%20la%20precipitation%20precipitation.png" class="card-img-top" alt="Évolution des précipitations" loading="lazy">
+          <div class="card-body">
+            <h3 class="h5 mb-2">Précipitations</h3>
+            <ul class="mb-2 small">
+              <li>Période la plus humide : <strong>juin–septembre</strong> (pic en <strong>août</strong>)</li>
+              <li>Cumul annuel moyen : <strong>≈ 1 320 mm/an</strong> (plage ≈ 1 150–1 550 mm)</li>
+              <li>Répartition : <strong>mai–octobre</strong> (pluies) / <strong>novembre–avril</strong> (saison sèche)</li>
+            </ul>
+            <div class="text-muted small">Tendance : <span class="text-danger">baisse légère</span> (~ −2 à −3 mm/an).</div>
+            <a href="evolution%20de%20la%20precipitation%20precipitation.png" download class="btn btn-success btn-sm mt-2">Télécharger PNG</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Température -->
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <img src="evolution%20de%20la%20temperature.png" class="card-img-top" alt="Évolution de la température" loading="lazy">
+          <div class="card-body">
+            <h3 class="h5 mb-2">Température</h3>
+            <ul class="mb-2 small">
+              <li>Moyenne annuelle : <strong>≈ 26,6 °C</strong></li>
+              <li>Amplitude interannuelle : <strong>≈ 25,9–28,4 °C</strong> (Δ ≈ 2,5 °C)</li>
+              <li>Mois les plus chauds : <strong>mars–avril</strong> · plus frais : <strong>juillet–août</strong></li>
+            </ul>
+            <div class="text-muted small">Année la plus chaude du graphe : <strong>2022</strong>.</div>
+            <a href="evolution%20de%20la%20temperature.png" download class="btn btn-success btn-sm mt-2">Télécharger PNG</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-3">
+      <div class="alert alert-info" role="alert">
+        <strong>Synthèse locale :</strong>
+        la température est en hausse alors que le volume des pluies est en baisse.
+        Effets attendus : saison humide plus courte, stress hydrique, régénération forestière affectée.
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <span class="badge badge-soft">Température ↑</span>
+        <span class="badge badge-soft">Pluviométrie ↓</span>
+        <span class="badge badge-soft">Saison humide irrégulière</span>
+        <span class="badge badge-soft">Risque incendie accru</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- GALERIE & TÉLÉCHARGEMENTS -->
+  <section id="galerie" class="container my-5">
+    <h2 class="h4 section-title mb-1">Galerie & téléchargements</h2>
+    <p class="section-note">Cliquez pour afficher en grand ou « Télécharger PNG » pour enregistrer.</p>
+
+    <div class="row g-4">
+      <div class="col-md-6 col-lg-4">
+        <div class="card h-100">
+          <img src="CARTE%20DE%20LOCALISATION.png" class="card-img-top" alt="Carte de localisation">
+          <div class="card-body">
+            <h5 class="card-title">Carte de localisation</h5>
+            <a href="CARTE%20DE%20LOCALISATION.png" download class="btn btn-success btn-sm">Télécharger PNG</a>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="card h-100">
+          <img src="OCCUPATION%20DE%20SOL%201995.png" class="card-img-top" alt="Occupation du sol 1995">
+          <div class="card-body">
+            <h5 class="card-title">Occupation du sol — 1995</h5>
+            <a href="OCCUPATION%20DE%20SOL%201995.png" download class="btn btn-success btn-sm">Télécharger PNG</a>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="card h-100">
+          <img src="occupation%20du%20sol%202015.png" class="card-img-top" alt="Occupation du sol 2015">
+          <div class="card-body">
+            <h5 class="card-title">Occupation du sol — 2015</h5>
+            <a href="occupation%20du%20sol%202015.png" download class="btn btn-success btn-sm">Télécharger PNG</a>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="card h-100">
+          <img src="ocupation%20de%20sol%202025.png" class="card-img-top" alt="Occupation du sol 2025">
+          <div class="card-body">
+            <h5 class="card-title">Occupation du sol — 2025</h5>
+            <a href="ocupation%20de%20sol%202025.png" download class="btn btn-success btn-sm">Télécharger PNG</a>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="card h-100">
+          <img src="carte%20de%20prediction.png" class="card-img-top" alt="Carte de prédiction">
+          <div class="card-body">
+            <h5 class="card-title">Carte de prédiction</h5>
+            <a href="carte%20de%20prediction.png" download class="btn btn-success btn-sm">Télécharger PNG</a>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="card h-100">
+          <img src="prediction%20carte_3.png" class="card-img-top" alt="Prédiction carte 3">
+          <div class="card-body">
+            <h5 class="card-title">Prédiction — variante</h5>
+            <a href="prediction%20carte_3.png" download class="btn btn-success btn-sm">Télécharger PNG</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTACT -->
+  <section id="contact" class="container my-5">
+    <h2 class="h4 section-title mb-1">Contact</h2>
+    <p class="section-note">Pour toute question méthodo ou données, écris-moi.</p>
+    <div class="card">
+      <div class="card-body">
+        <p class="mb-0">Erwan — <a href="mailto:ericn4712@gmail.com">ericn4712@gmail.com</a> · 0610574937</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="py-4 mt-4 text-center">
+    <div class="container small">
+      © <span id="year"></span> Modélisation prospective — Koba & Séguéla
+    </div>
+  </footer>
+
+  <!-- Bootstrap bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+
+  <!-- OpenLayers / qgis2web JS -->
+  <script src="resources/qgis2web_expressions.js"></script>
+  <script src="resources/functions.js"></script>
+  <script src="resources/ol.js"></script>
+  <script src="resources/ol-layerswitcher.js"></script>
+  <script src="resources/ol-geocoder.js"></script>
+  <script src="layers/zonedetude_7.js"></script>
+  <script src="styles/zonedetude_7_style.js"></script>
+  <script src="layers/layers.js" type="text/javascript"></script>
+  <script src="resources/Autolinker.min.js"></script>
+  <script src="resources/qgis2web.js"></script>
+
+  <!-- Fonds Satellite (Esri) + Plan (OSM) intégrés dans le groupe de base -->
+  <script>
+  (function () {
+    if (!window.map) return;
+    const satelliteEsri = new ol.layer.Tile({
+      title: 'Satellite (Esri World Imagery)',
+      type: 'base',
+      visible: true,
+      source: new ol.source.XYZ({
+        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attributions: 'Imagery © Esri, Maxar, Earthstar Geographics, CNES/Airbus, USDA, USGS'
+      })
+    });
+    const planOSM = new ol.layer.Tile({
+      title: 'Plan (OSM)',
+      type: 'base',
+      visible: false,
+      source: new ol.source.OSM()
+    });
+    const baseGroup = new ol.layer.Group({ title: 'Fond de carte', layers: [satelliteEsri, planOSM] });
+    const first = map.getLayers().item(0);
+    if (first instanceof ol.layer.Group && first.get('title')) {
+      map.getLayers().setAt(0, baseGroup);
+    } else {
+      map.getLayers().insertAt(0, baseGroup);
+    }
+  })();
+  </script>
+
+  <!-- Smooth scroll + lazy loading -->
+  <script>
+    document.querySelectorAll('a[href^="#"]').forEach(a=>{
+      a.addEventListener('click',e=>{
+        const id=a.getAttribute('href');
+        if(id.length>1){ e.preventDefault(); document.querySelector(id)?.scrollIntoView({behavior:'smooth'}); }
+      });
+    });
+    document.querySelectorAll('img:not([loading])').forEach(img=> img.setAttribute('loading','lazy'));
+  </script>
+</body>
+</html>
+
